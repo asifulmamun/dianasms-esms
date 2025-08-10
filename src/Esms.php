@@ -9,27 +9,30 @@ use Illuminate\Support\Facades\Http;
 class Esms
 {
     /**
-     * Send SMS (single or multiple).
+     * Send SMS (single/multiple).
      *
      * $recipient: "01600103032" | "016...,88017..." | ['016...','88017...']
-     * $options: [
-     *   'sender_id' => '...',         // override default
-     *   'type'      => 'plain',       // override default
-     *   'schedule_time' => 'Y-m-d H:i'
-     * ]
+     * $options (overrides take priority over env/config):
+     *   - 'api_token'   => '...'            // override ESMS_API_TOKEN
+     *   - 'base_url'    => 'https://...'    // override ESMS_BASE_URL
+     *   - 'sender_id'   => '...'            // override ESMS_SENDER_ID
+     *   - 'type'        => 'plain'          // override ESMS_TYPE
+     *   - 'timeout'     => 15               // override ESMS_TIMEOUT
+     *   - 'http_mode'   => 'json'|'form'    // override ESMS_HTTP_MODE
+     *   - 'schedule_time' => 'Y-m-d H:i'
      */
     public static function send(string|array $recipient, string $message, array $options = []): array
     {
-        $apiToken = (string) self::cfg('api_token', '');
+        $apiToken = (string) self::option('api_token',  $options, '');
         if ($apiToken === '') {
             return ['status' => 'error', 'message' => 'Missing ESMS_API_TOKEN'];
         }
 
-        $baseUrl   = (string) self::cfg('base_url', 'https://login.esms.com.bd');
-        $senderId  = (string) ($options['sender_id'] ?? self::cfg('sender_id', '8809601003650'));
-        $type      = (string) ($options['type']      ?? self::cfg('type', 'plain'));
-        $timeout   = (int) self::cfg('timeout', 10);
-        $httpMode  = (string) self::cfg('http_mode', 'json'); // 'json' | 'form'
+        $baseUrl  = (string) self::option('base_url',  $options, 'https://login.esms.com.bd');
+        $senderId = (string) self::option('sender_id', $options, '8809601003650');
+        $type     = (string) self::option('type',      $options, 'plain');
+        $timeout  = (int)    self::option('timeout',   $options, 10);
+        $httpMode = (string) self::option('http_mode', $options, 'json'); // 'json' | 'form'
 
         $recipients = self::normalizeRecipients($recipient);
         if ($recipients === '') {
@@ -54,12 +57,10 @@ class Esms
             if ($httpMode === 'form') {
                 $http = $http->asForm();
             } else {
-                // default: JSON
                 $http = $http->withHeaders(['Content-Type' => 'application/json']);
             }
 
             $res = $http->post($url, $payload)->throw();
-
             return $res->json() ?? [];
         } catch (RequestException|ConnectionException $e) {
             return ['status' => 'error', 'message' => $e->getMessage()];
@@ -68,16 +69,22 @@ class Esms
 
     /* ---------------- helpers --------------- */
 
-    // Prefer app config('esms.*'), else load package config file directly (which uses env())
+    /** Per-call option overrides > app config('esms.*') > package config/env > default */
+    protected static function option(string $key, array $options, mixed $default = null): mixed
+    {
+        if (array_key_exists($key, $options)) {
+            return $options[$key];
+        }
+        return self::cfg($key, $default);
+    }
+
+    // Prefer app config('esms.*'), else load package config (which uses env()).
     protected static function cfg(string $key, mixed $default = null): mixed
     {
         if (function_exists('config')) {
-            $fromApp = config("esms.$key");
-            if ($fromApp !== null) {
-                return $fromApp;
-            }
+            $val = config("esms.$key");
+            if ($val !== null) return $val;
         }
-
         static $pkg;
         if ($pkg === null) {
             $path = __DIR__ . '/../config/esms.php';
@@ -91,49 +98,39 @@ class Esms
         if (is_string($recipients)) {
             $recipients = array_map('trim', explode(',', $recipients));
         }
-
         $valid = [];
         foreach ($recipients as $r) {
             $f = self::formatPhone($r);
-            if ($f !== '') {
-                $valid[$f] = true; // unique
-            }
+            if ($f !== '') $valid[$f] = true;
         }
         return implode(',', array_keys($valid));
     }
 
     /**
-     * Phone formatting:
-     * - Converts Bangla digits → English
-     * - Removes '+' and non-digits
-     * - If BD 11-digit starting with 0, convert to 880XXXXXXXXXX
-     * - If starts with 880 (BD), keep
-     * - For other countries (e.g., 31612345678), keep digits if length >= 8
+     * - Bangla digits → English
+     * - strip '+' and non-digits
+     * - BD 11-digit starting '0' → '880' + rest
+     * - keep '880' + 10 digits (13 total)
+     * - otherwise allow >=8 digits (e.g., intl numbers like 31612345678)
      */
     protected static function formatPhone(?string $phone): string
     {
         $phone = (string) $phone;
 
-        // Bangla → English digits
         $bn = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
         $en = ['0','1','2','3','4','5','6','7','8','9'];
         $phone = str_replace($bn, $en, $phone);
 
-        // Remove leading plus then non-digits
         $phone = ltrim($phone, '+');
         $phone = preg_replace('/\D/', '', $phone ?? '');
 
         if ($phone === '') return '';
-
-        // BD specific normalization
         if (strlen($phone) === 11 && str_starts_with($phone, '0')) {
             return '880' . substr($phone, 1);
         }
         if (str_starts_with($phone, '880') && strlen($phone) === 13) {
             return $phone;
         }
-
-        // Allow other country codes like 31612345678 (>=8 digits)
         return strlen($phone) >= 8 ? $phone : '';
     }
 }
