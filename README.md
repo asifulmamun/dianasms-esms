@@ -6,3 +6,12 @@ Send SMS via ESMS (login.esms.com.bd) from Laravel. Supports multiple recipients
 ```bash
 composer require asifulmamun/dianasms-esms
 php artisan vendor:publish --tag=config --provider="Asifulmamun\DianasmsEsms\EsmsServiceProvider"
+```
+
+## Use
+```
+use Asifulmamun\DianasmsEsms\Esms;
+Esms::send('01600103032', 'Your OTP: XXXX');
+```
+### Or
+`\Asifulmamun\DianasmsEsms\Esms::send('01600103032', 'Your OTP: XXXX');`
