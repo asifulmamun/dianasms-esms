@@ -22,7 +22,20 @@ ESMS_HTTP_MODE=json
 ## Use
 ```
 use Asifulmamun\DianasmsEsms\Esms;
-Esms::send('01600103032', 'Your OTP: XXXX');
+Esms::send('01721600688', 'Your OTP: XXXX');
 ```
 ### Or
-`\Asifulmamun\DianasmsEsms\Esms::send('01600103032', 'Your OTP: XXXX');`
+`\Asifulmamun\DianasmsEsms\Esms::send('01721600688', 'Your OTP: XXXX');`
+
+
+## Use Overriding
+```
+// override base_url + token (e.g., staging) for this call
+Esms::send('01721600688', 'Hello', [
+    'base_url'  => 'https://login.esms.com.bd',
+    'api_token' => 'xxxxxxxxxxx',
+    'timeout'   => 20,
+    'sender_id' => 'xxxxxxxxx',
+    'http_mode' => 'json',
+]);
+```
