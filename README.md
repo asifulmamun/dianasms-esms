@@ -8,6 +8,17 @@ composer require asifulmamun/dianasms-esms
 php artisan vendor:publish --tag=config --provider="Asifulmamun\DianasmsEsms\EsmsServiceProvider"
 ```
 
+
+## Set .env collect from https://www.dianahost.com/bulk-sms-service/
+```
+ESMS_BASE_URL=https://login.esms.com.bd
+ESMS_API_TOKEN="XXXXXXXXXXXXXXXX"
+ESMS_SENDER_ID="XXXXXXXX"
+ESMS_TYPE=plain
+ESMS_TIMEOUT=10
+ESMS_HTTP_MODE=json
+```
+
 ## Use
 ```
 use Asifulmamun\DianasmsEsms\Esms;
