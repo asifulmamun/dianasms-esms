@@ -131,6 +131,12 @@ class Esms
         if (str_starts_with($phone, '880') && strlen($phone) === 13) {
             return $phone;
         }
+        if (strlen($phone) === 14 && str_starts_with($phone, '+')) {
+            return substr($phone, 1);
+        }
+        if (str_starts_with($phone, '+880') && strlen($phone) === 14) {
+            return '880' . substr($phone, 4);
+        }
         return strlen($phone) >= 8 ? $phone : '';
     }
 }
